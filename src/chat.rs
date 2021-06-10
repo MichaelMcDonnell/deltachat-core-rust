@@ -538,7 +538,7 @@ impl ChatId {
         }
 
         let chat = Chat::load_from_db(context, self).await?;
-        if !chat.can_send(context) {
+        if !chat.can_send(context).await {
             bail!("Can't set a draft: Can't send");
         }
 
@@ -1665,7 +1665,7 @@ async fn prepare_msg_common(
     chat_id.unarchive(context).await?;
 
     let mut chat = Chat::load_from_db(context, chat_id).await?;
-    ensure!(chat.can_send(context), "cannot send to {}", chat_id);
+    ensure!(chat.can_send(context).await, "cannot send to {}", chat_id);
 
     // The OutPreparing state is set by dc_prepare_msg() before it
     // calls this function and the message is left in the OutPreparing
@@ -2768,7 +2768,7 @@ pub async fn forward_msgs(context: &Context, msg_ids: &[MsgId], chat_id: ChatId)
 
     chat_id.unarchive(context).await?;
     if let Ok(mut chat) = Chat::load_from_db(context, chat_id).await {
-        ensure!(chat.can_send(context), "cannot send to {}", chat_id);
+        ensure!(chat.can_send(context).await, "cannot send to {}", chat_id);
         curr_timestamp = dc_create_smeared_timestamps(context, msg_ids.len()).await;
         let ids = context
             .sql
@@ -3214,7 +3214,7 @@ mod tests {
         assert!(chat.is_self_talk());
         assert!(chat.visibility == ChatVisibility::Normal);
         assert!(!chat.is_device_talk());
-        assert!(chat.can_send(&t));
+        assert!(chat.can_send(&t).await);
         assert_eq!(chat.name, stock_str::saved_messages(&t).await);
         assert!(chat.get_profile_image(&t).await.unwrap().is_some());
     }
@@ -3228,7 +3228,7 @@ mod tests {
         assert!(!chat.is_self_talk());
         assert!(chat.visibility == ChatVisibility::Normal);
         assert!(!chat.is_device_talk());
-        assert!(!chat.can_send(&t));
+        assert!(!chat.can_send(&t).await);
         assert_eq!(chat.name, stock_str::dead_drop(&t).await);
     }
 
@@ -3306,7 +3306,7 @@ mod tests {
         assert_eq!(chat.get_type(), Chattype::Single);
         assert!(chat.is_device_talk());
         assert!(!chat.is_self_talk());
-        assert!(!chat.can_send(&t));
+        assert!(!chat.can_send(&t).await);
 
         assert_eq!(chat.name, stock_str::device_messages(&t).await);
         assert!(chat.get_profile_image(&t).await.unwrap().is_some());
