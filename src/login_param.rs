@@ -7,6 +7,7 @@ use crate::provider::{get_provider_by_id, Provider};
 use crate::{context::Context, provider::Socket};
 use anyhow::Result;
 
+
 #[derive(Copy, Clone, Debug, Display, FromPrimitive, PartialEq, Eq)]
 #[repr(u32)]
 #[strum(serialize_all = "snake_case")]
@@ -44,6 +45,11 @@ pub struct ServerLoginParam {
     pub certificate_checks: CertificateChecks,
 }
 
+
+pub use async_smtp::smtp::Socks5Config;
+
+
+
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct LoginParam {
     pub addr: String,
@@ -51,6 +57,7 @@ pub struct LoginParam {
     pub smtp: ServerLoginParam,
     pub server_flags: i32,
     pub provider: Option<&'static Provider>,
+    pub socks5_config: Option<&'static Socks5Config>
 }
 
 impl LoginParam {
@@ -129,6 +136,34 @@ impl LoginParam {
             .get_raw_config(key)
             .await?
             .and_then(|provider_id| get_provider_by_id(&provider_id));
+        
+        let key = format!("{}socks5_host", prefix);
+        let socks5_host = sql.get_raw_config(key).await?.unwrap_or_default();
+
+        let key = format!("{}socks5_port", prefix);
+        let socks5_port = sql.get_raw_config_int(key).await?.unwrap_or_default();
+        
+        let key = format!("{}socks5_user", prefix);
+        let socks5_user = sql.get_raw_config(key).await?.unwrap_or_default();
+
+
+        let key = format!("{}socks5_password", prefix);
+        let socks5_password = sql.get_raw_config(key).await?.unwrap_or_default();
+        
+
+        let socks5_config = if socks5_host != "" {
+            Some(Socks5Config {
+                host: socks5_host,
+                port: socks5_port as u16,
+                user_password: if socks5_user != "" {
+                    Some((socks5_user, socks5_password))
+                } else {
+                    None
+                }
+            })
+        } else {
+            None
+        };
 
         Ok(LoginParam {
             addr,
@@ -150,6 +185,7 @@ impl LoginParam {
             },
             provider,
             server_flags,
+            &socks5_config
         })
     }
 
@@ -207,6 +243,23 @@ impl LoginParam {
         if let Some(provider) = self.provider {
             let key = format!("{}provider", prefix);
             sql.set_raw_config(key, Some(provider.id)).await?;
+        }
+
+        if let Some(socks5_config) = self.socks5_config.as_ref() {
+            let key = format!("{}socks5_host", prefix);
+            sql.set_raw_config(key, Some(&socks5_config.host)).await?;
+
+            let key = format!("{}socks5_port", prefix);
+            sql.set_raw_config(key, Some(&format!("{}", socks5_config.port))).await?;
+            
+
+            if let Some((user, pass)) = socks5_config.user_password.as_ref() {
+                let key = format!("{}socks5_user", prefix);
+                sql.set_raw_config(key, Some(&user)).await?;
+
+                let key = format!("{}socks5_password", prefix);
+                sql.set_raw_config(key, Some(&pass)).await?;
+            }
         }
 
         Ok(())
