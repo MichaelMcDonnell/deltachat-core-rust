@@ -127,7 +127,7 @@ impl Smtp {
         &mut self,
         context: &Context,
         lp: &ServerLoginParam,
-        socks5_config: Option<&Socks5Config>,
+        socks5_config: Option<Socks5Config>,
         addr: &str,
         oauth2: bool,
         provider_strict_tls: bool,

@@ -57,7 +57,7 @@ pub struct LoginParam {
     pub smtp: ServerLoginParam,
     pub server_flags: i32,
     pub provider: Option<&'static Provider>,
-    pub socks5_config: Option<&'static Socks5Config>
+    pub socks5_config: Option<Socks5Config>
 }
 
 impl LoginParam {
@@ -185,7 +185,7 @@ impl LoginParam {
             },
             provider,
             server_flags,
-            &socks5_config
+            socks5_config
         })
     }
 

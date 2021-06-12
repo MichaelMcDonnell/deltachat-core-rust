@@ -567,7 +567,7 @@ async fn try_smtp_one_param(
     info!(context, "Trying: {}", inf);
 
     if let Err(err) = smtp
-        .connect(context, param, socks5_config.clone(), addr, oauth2, provider_strict_tls)
+        .connect(context, param, socks5_config, addr, oauth2, provider_strict_tls)
         .await
     {
         info!(context, "failure: {}", err);
