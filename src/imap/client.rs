@@ -4,49 +4,19 @@ use async_imap::{
     error::{Error as ImapError, Result as ImapResult},
     Client as ImapClient,
 };
+
+use async_smtp::smtp::Socks5Config;
+use async_smtp::smtp::ServerAddress;
+
+
 use async_std::{future, net::{self, TcpStream}};
 use fast_socks5::client::{Config, Socks5Stream};
 
 use super::session::Session;
-use crate::login_param::dc_build_tls;
+use crate::login_param::{DeltaSocks5Config, dc_build_tls};
 
 use super::session::SessionStream;
 
-pub struct Socks5Config {
-    host: String, 
-    port: u16,
-    user_pass: Option<(String, String)>
-}
-
-impl Socks5Config {
-    pub async fn connect(&self, addr: String, port: u16, timeout: Duration) -> Result<Socks5Stream<TcpStream>, ImapError>  {
-        let socks_addr = format!("{}:{}", self.host, self.port);
-
-        let socks_connection = if let Some((user, password)) = self.user_pass.as_ref() {
-            future::timeout(timeout, Socks5Stream::connect_with_password(
-                socks_addr,
-                addr,
-                port,
-                user.into(),
-                password.into(),
-                Config::default(),
-            )).await
-        } else {      
-            future::timeout(timeout, Socks5Stream::connect(
-                socks_addr,
-                addr,
-                port,
-                Config::default(),
-            )).await
-        };
-
-        match socks_connection? {
-            Ok(socks5_stream) => Ok(socks5_stream),
-            Err(e) => Err(ImapError::Socks5Error(e)),
-        }
-
-    }
-}
 
 #[derive(Debug)]
 pub(crate) struct Client {
@@ -149,7 +119,11 @@ impl Client {
     }
 
     pub async fn connect_secure_socks5(target_addr: (String, u16), strict_tls: bool, socks5_config: Socks5Config) -> ImapResult<Self> {
-        let socks5_stream: Box<dyn SessionStream> = Box::new(socks5_config.connect(target_addr.0.clone(), target_addr.1, Duration::from_millis(500)).await?);
+        let socks5_stream: Box<dyn SessionStream> = Box::new(
+            match socks5_config.connect(&ServerAddress::new(target_addr.0.clone(), target_addr.1), Duration::from_millis(500)).await {
+                Ok(socks5_stream) => socks5_stream,
+                Err(e) => { panic!(e) }
+            });
 
         let tls = dc_build_tls(strict_tls);
         let tls_stream: Box<dyn SessionStream> = Box::new(tls.connect(target_addr.0, socks5_stream).await?);
@@ -166,8 +140,11 @@ impl Client {
         })
     }
 
-    pub async fn connect_insecure_socks5(target_addr: (String, u16), socks5_config: Socks5Config) -> ImapResult<Self> {
-        let socks5_stream: Box<dyn SessionStream> = Box::new(socks5_config.connect(target_addr.0.clone(), target_addr.1, Duration::from_millis(500)).await?);
+    pub async fn connect_insecure_socks5(target_addr: (String, u16), socks5_config: DeltaSocks5Config) -> ImapResult<Self> {
+        let socks5_stream: Box<dyn SessionStream> = Box::new(match socks5_config.connect(&ServerAddress::new(target_addr.0.clone(), target_addr.1), Duration::from_millis(500)).await {
+            Ok(s) => s,
+            Err(e) => { return Err(ImapError::ConnectionLost); }
+        });
 
 
         let mut client = ImapClient::new(socks5_stream);

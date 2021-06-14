@@ -14,7 +14,7 @@ use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 
 use crate::dc_tools::EmailAddress;
 use crate::imap::Imap;
-use crate::login_param::Socks5Config;
+use crate::login_param::DeltaSocks5Config;
 use crate::login_param::{LoginParam, ServerLoginParam};
 use crate::message::Message;
 use crate::oauth2::dc_get_oauth2_addr;
@@ -325,7 +325,7 @@ async fn configure(ctx: &Context, param: &mut LoginParam) -> Result<()> {
                 oauth2,
                 provider_strict_tls,
                 &mut smtp,
-                param.socks5_config
+                //param.socks5_config
             )
             .await
             {
@@ -554,20 +554,20 @@ async fn try_smtp_one_param(
     oauth2: bool,
     provider_strict_tls: bool,
     smtp: &mut Smtp,
-    socks5_config: Option<Socks5Config>
+    //socks5_config: Option<Socks5Config>
 ) -> Result<(), ConfigurationError> {
     let inf = format!(
         "smtp: {}@{}:{} security={} certificate_checks={} oauth2={} socks5_config={}",
-        param.user, param.server, param.port, param.security, param.certificate_checks, oauth2, if let Some(socks5_config) = socks5_config.as_ref() {
+        param.user, param.server, param.port, param.security, param.certificate_checks, oauth2, /*if let Some(socks5_config) = socks5_config.as_ref() {
             format!("{}", socks5_config)
         } else {
             "None".to_string()
-        }
+        }*/ "None".to_string()
     );
     info!(context, "Trying: {}", inf);
 
     if let Err(err) = smtp
-        .connect(context, param, socks5_config, addr, oauth2, provider_strict_tls)
+        .connect(context, param, /*socks5_config,*/ addr, oauth2, provider_strict_tls)
         .await
     {
         info!(context, "failure: {}", err);

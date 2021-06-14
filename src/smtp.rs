@@ -103,7 +103,7 @@ impl Smtp {
             .connect(
                 context,
                 &lp.smtp,
-                lp.socks5_config,
+                //lp.socks5_config,
                 &lp.addr,
                 lp.server_flags & DC_LP_AUTH_OAUTH2 != 0,
                 lp.provider.map_or(false, |provider| provider.strict_tls),
@@ -127,7 +127,6 @@ impl Smtp {
         &mut self,
         context: &Context,
         lp: &ServerLoginParam,
-        socks5_config: Option<Socks5Config>,
         addr: &str,
         oauth2: bool,
         provider_strict_tls: bool,
@@ -206,9 +205,9 @@ impl Smtp {
             .connection_reuse(smtp::ConnectionReuseParameters::ReuseUnlimited)
             .timeout(Some(Duration::from_secs(SMTP_TIMEOUT)));
         
-        if let Some(socks5_config) = socks5_config {
-            client = client.use_socks5(socks5_config.clone());
-        }
+        //if let Some(socks5_config) = socks5_config {
+        //    client = client.use_socks5(socks5_config.clone());
+        //}
 
         let mut trans = client.into_transport();
         if let Err(err) = trans.connect().await {

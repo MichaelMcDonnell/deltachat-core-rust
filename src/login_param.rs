@@ -2,10 +2,16 @@
 
 use std::borrow::Cow;
 use std::fmt;
+use std::time::Duration;
 
 use crate::provider::{get_provider_by_id, Provider};
 use crate::{context::Context, provider::Socket};
 use anyhow::Result;
+use async_std::future;
+use async_std::net::TcpStream;
+use fast_socks5::SocksError;
+use fast_socks5::client::Config;
+use fast_socks5::client::Socks5Stream;
 
 
 #[derive(Copy, Clone, Debug, Display, FromPrimitive, PartialEq, Eq)]
@@ -45,10 +51,62 @@ pub struct ServerLoginParam {
     pub certificate_checks: CertificateChecks,
 }
 
+pub enum Socks5Error {
+    ServerTimeout(String),
+    SocksError(SocksError)
+}
 
-pub use async_smtp::smtp::Socks5Config;
+#[derive(Default, Debug, Clone, PartialEq)]
+pub struct DeltaSocks5Config {
+    pub enabled: bool,
+    pub host: String,
+    pub port: u16,
+    pub user_password: Option<(String, String)>
+}
 
+pub enum DeltaSocksError {
+    TimeoutError(future::TimeoutError),
+    SocksError(SocksError)
+}
 
+impl DeltaSocks5Config {
+    pub async fn connect(
+        &self,
+        target_addr: &async_smtp::smtp::ServerAddress,
+        timeout: Duration,
+    ) -> Result<Socks5Stream<TcpStream>, DeltaSocksError> {
+        let socks_server = format!("{}:{}", self.host.clone(), self.port);
+        println!("{}", socks_server);
+ 
+        let socks_connection = if let Some((user, password)) = self.user_password.as_ref() {
+            future::timeout(timeout, Socks5Stream::connect_with_password(
+                socks_server,
+                target_addr.host.clone(),
+                target_addr.port,
+                user.into(),
+                password.into(),
+                Config::default(),
+            )).await
+        } else {      
+            future::timeout(timeout, Socks5Stream::connect(
+                socks_server,
+                target_addr.host.clone(),
+                target_addr.port,
+                Config::default(),
+            )).await
+        };
+ 
+        match socks_connection {
+            Ok(socks5_stream) => {
+                match socks5_stream {
+                    Ok(socks5_stream) => Ok(socks5_stream),
+                    Err(e) => Err(DeltaSocksError::SocksError(e))
+                }
+            },
+            Err(e) => Err(DeltaSocksError::TimeoutError(e))
+        }
+    }
+}
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct LoginParam {
@@ -57,7 +115,7 @@ pub struct LoginParam {
     pub smtp: ServerLoginParam,
     pub server_flags: i32,
     pub provider: Option<&'static Provider>,
-    pub socks5_config: Option<Socks5Config>
+    pub socks5_config: DeltaSocks5Config
 }
 
 impl LoginParam {
@@ -137,6 +195,10 @@ impl LoginParam {
             .await?
             .and_then(|provider_id| get_provider_by_id(&provider_id));
         
+        
+        let key = format!("{}socks5_enabled", prefix);
+        let socks5_enabled = sql.get_raw_config_bool(key).await.unwrap_or(false);
+        
         let key = format!("{}socks5_host", prefix);
         let socks5_host = sql.get_raw_config(key).await?.unwrap_or_default();
 
@@ -151,18 +213,15 @@ impl LoginParam {
         let socks5_password = sql.get_raw_config(key).await?.unwrap_or_default();
         
 
-        let socks5_config = if socks5_host != "" {
-            Some(Socks5Config {
-                host: socks5_host,
-                port: socks5_port as u16,
-                user_password: if socks5_user != "" {
-                    Some((socks5_user, socks5_password))
-                } else {
-                    None
-                }
-            })
-        } else {
-            None
+        let socks5_config = DeltaSocks5Config {
+            enabled: socks5_enabled,
+            host: socks5_host,
+            port: socks5_port as u16,
+            user_password: if socks5_user != "" {
+                Some((socks5_user, socks5_password))
+            } else {
+                None
+            }
         };
 
         Ok(LoginParam {
@@ -245,20 +304,20 @@ impl LoginParam {
             sql.set_raw_config(key, Some(provider.id)).await?;
         }
 
-        if let Some(socks5_config) = self.socks5_config.as_ref() {
+        if self.socks5_config.host != "" {
             let key = format!("{}socks5_host", prefix);
-            sql.set_raw_config(key, Some(&socks5_config.host)).await?;
+            sql.set_raw_config(key, Some(&self.socks5_config.host)).await?;
 
             let key = format!("{}socks5_port", prefix);
-            sql.set_raw_config(key, Some(&format!("{}", socks5_config.port))).await?;
+            sql.set_raw_config(key, Some(&format!("{}", &self.socks5_config.port))).await?;
             
 
-            if let Some((user, pass)) = socks5_config.user_password.as_ref() {
+            if let Some(user_password) = &self.socks5_config.user_password {
                 let key = format!("{}socks5_user", prefix);
-                sql.set_raw_config(key, Some(&user)).await?;
+                sql.set_raw_config(key, Some(&user_password.0)).await?;
 
                 let key = format!("{}socks5_password", prefix);
-                sql.set_raw_config(key, Some(&pass)).await?;
+                sql.set_raw_config(key, Some(&user_password.1)).await?;
             }
         }
 
