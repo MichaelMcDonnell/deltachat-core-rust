@@ -61,7 +61,8 @@ pub struct DeltaSocks5Config {
     pub enabled: bool,
     pub host: String,
     pub port: u16,
-    pub user_password: Option<(String, String)>
+    pub user: String,
+    pub password: String
 }
 
 pub enum DeltaSocksError {
@@ -78,13 +79,13 @@ impl DeltaSocks5Config {
         let socks_server = format!("{}:{}", self.host.clone(), self.port);
         println!("{}", socks_server);
  
-        let socks_connection = if let Some((user, password)) = self.user_password.as_ref() {
+        let socks_connection = if self.user != "" {
             future::timeout(timeout, Socks5Stream::connect_with_password(
                 socks_server,
                 target_addr.host.clone(),
                 target_addr.port,
-                user.into(),
-                password.into(),
+                self.user.clone(),
+                self.password.clone(),
                 Config::default(),
             )).await
         } else {      
@@ -105,6 +106,19 @@ impl DeltaSocks5Config {
             },
             Err(e) => Err(DeltaSocksError::TimeoutError(e))
         }
+    }
+}
+
+impl fmt::Display for DeltaSocks5Config {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+
+        write!(
+            f,
+            "host:{},port:{},user:{},pass:***",
+            self.host,
+            self.port,
+            self.user
+        )
     }
 }
 
@@ -217,11 +231,8 @@ impl LoginParam {
             enabled: socks5_enabled,
             host: socks5_host,
             port: socks5_port as u16,
-            user_password: if socks5_user != "" {
-                Some((socks5_user, socks5_password))
-            } else {
-                None
-            }
+            user: socks5_user,
+            password: socks5_password
         };
 
         Ok(LoginParam {
@@ -312,12 +323,12 @@ impl LoginParam {
             sql.set_raw_config(key, Some(&format!("{}", &self.socks5_config.port))).await?;
             
 
-            if let Some(user_password) = &self.socks5_config.user_password {
+            if self.socks5_config.user != "" {
                 let key = format!("{}socks5_user", prefix);
-                sql.set_raw_config(key, Some(&user_password.0)).await?;
+                sql.set_raw_config(key, Some(&self.socks5_config.user)).await?;
 
                 let key = format!("{}socks5_password", prefix);
-                sql.set_raw_config(key, Some(&user_password.1)).await?;
+                sql.set_raw_config(key, Some(&self.socks5_config.password)).await?;
             }
         }
 

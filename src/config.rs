@@ -47,6 +47,12 @@ pub enum Config {
     SendSecurity,
     SmtpCertificateChecks,
     ServerFlags,
+    
+    Socks5Enabled,
+    Socks5Host,
+    Socks5Port,
+    Socks5User,
+    Socks5Password,
 
     Displayname,
     Selfstatus,
@@ -132,6 +138,11 @@ pub enum Config {
     ConfiguredSpamFolder,
     ConfiguredTimestamp,
     ConfiguredProvider,
+    ConfiguredSocks5Enabled,
+    ConfiguredSocks5Host,
+    ConfiguredSocks5Port,
+    ConfiguredSocks5User,
+    ConfiguredSocks5Password,
     Configured,
 
     #[strum(serialize = "sys.version")]

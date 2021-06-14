@@ -309,6 +309,8 @@ async fn configure(ctx: &Context, param: &mut LoginParam) -> Result<()> {
         .collect();
     let provider_strict_tls = param.provider.map_or(false, |provider| provider.strict_tls);
 
+    let socks5_config = param.socks5_config.clone();
+
     let smtp_config_task = task::spawn(async move {
         let mut smtp_configured = false;
         let mut errors = Vec::new();
@@ -321,6 +323,7 @@ async fn configure(ctx: &Context, param: &mut LoginParam) -> Result<()> {
             match try_smtp_one_param(
                 &context_smtp,
                 &smtp_param,
+                &socks5_config,
                 &smtp_addr,
                 oauth2,
                 provider_strict_tls,
@@ -439,6 +442,8 @@ async fn get_autoconfig(
     param_domain: &str,
     param_addr_urlencoded: &str,
 ) -> Option<Vec<ServerParams>> {
+    return None;
+    
     if let Ok(res) = moz_autoconfigure(
         ctx,
         &format!(
@@ -551,6 +556,7 @@ async fn try_imap_one_param(
 async fn try_smtp_one_param(
     context: &Context,
     param: &ServerLoginParam,
+    socks5_config: &DeltaSocks5Config,
     addr: &str,
     oauth2: bool,
     provider_strict_tls: bool,
@@ -559,16 +565,16 @@ async fn try_smtp_one_param(
 ) -> Result<(), ConfigurationError> {
     let inf = format!(
         "smtp: {}@{}:{} security={} certificate_checks={} oauth2={} socks5_config={}",
-        param.user, param.server, param.port, param.security, param.certificate_checks, oauth2, /*if let Some(socks5_config) = socks5_config.as_ref() {
-            format!("{}", socks5_config)
+        param.user, param.server, param.port, param.security, param.certificate_checks, oauth2, if socks5_config.enabled == true {
+            format!("host={},port={},user={},pass=***", socks5_config.host, socks5_config.port, socks5_config.user)
         } else {
             "None".to_string()
-        }*/ "None".to_string()
+        }
     );
     info!(context, "Trying: {}", inf);
 
     if let Err(err) = smtp
-        .connect(context, param, /*socks5_config,*/ addr, oauth2, provider_strict_tls)
+        .connect(context, param, socks5_config, addr, oauth2, provider_strict_tls)
         .await
     {
         info!(context, "failure: {}", err);
