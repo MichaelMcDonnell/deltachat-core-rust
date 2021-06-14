@@ -118,12 +118,11 @@ impl Client {
         })
     }
 
-    pub async fn connect_secure_socks5(target_addr: (String, u16), strict_tls: bool, socks5_config: Socks5Config) -> ImapResult<Self> {
-        let socks5_stream: Box<dyn SessionStream> = Box::new(
-            match socks5_config.connect(&ServerAddress::new(target_addr.0.clone(), target_addr.1), Duration::from_millis(500)).await {
-                Ok(socks5_stream) => socks5_stream,
-                Err(e) => { panic!(e) }
-            });
+    pub async fn connect_secure_socks5(target_addr: (String, u16), strict_tls: bool, socks5_config: DeltaSocks5Config) -> ImapResult<Self> {
+        let socks5_stream: Box<dyn SessionStream> = Box::new(match socks5_config.connect(&ServerAddress::new(target_addr.0.clone(), target_addr.1), Duration::from_millis(500)).await {
+            Ok(s) => s,
+            Err(e) => { return Err(ImapError::ConnectionLost); }
+        });
 
         let tls = dc_build_tls(strict_tls);
         let tls_stream: Box<dyn SessionStream> = Box::new(tls.connect(target_addr.0, socks5_stream).await?);

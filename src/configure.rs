@@ -361,7 +361,7 @@ async fn configure(ctx: &Context, param: &mut LoginParam) -> Result<()> {
         param.imap.port = imap_server.port;
         param.imap.security = imap_server.socket;
 
-        match try_imap_one_param(ctx, &param.imap, &param.addr, oauth2, provider_strict_tls).await {
+        match try_imap_one_param(ctx, &param.imap, &param.socks5_config, &param.addr, oauth2, provider_strict_tls).await {
             Ok(configured_imap) => {
                 imap = Some(configured_imap);
                 break;
@@ -509,6 +509,7 @@ async fn get_autoconfig(
 async fn try_imap_one_param(
     context: &Context,
     param: &ServerLoginParam,
+    socks5_config: &DeltaSocks5Config,
     addr: &str,
     oauth2: bool,
     provider_strict_tls: bool,
@@ -521,7 +522,7 @@ async fn try_imap_one_param(
 
     let (_s, r) = async_std::channel::bounded(1);
 
-    let mut imap = match Imap::new(param, addr, oauth2, provider_strict_tls, r).await {
+    let mut imap = match Imap::new(param, socks5_config, addr, oauth2, provider_strict_tls, r).await {
         Err(err) => {
             info!(context, "failure: {}", err);
             return Err(ConfigurationError {

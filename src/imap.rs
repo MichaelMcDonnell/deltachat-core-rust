@@ -14,7 +14,7 @@ use async_std::channel::Receiver;
 use async_std::prelude::*;
 use num_traits::FromPrimitive;
 
-use crate::config::Config;
+use crate::{config::Config, login_param::DeltaSocks5Config};
 use crate::constants::{
     Chattype, ShowEmails, Viewtype, DC_FETCH_EXISTING_MSGS_COUNT, DC_FOLDERS_CONFIGURED_VERSION,
     DC_LP_AUTH_OAUTH2,
@@ -140,6 +140,7 @@ impl FolderMeaning {
 struct ImapConfig {
     pub addr: String,
     pub lp: ServerLoginParam,
+    pub socks5_config: DeltaSocks5Config,
     pub strict_tls: bool,
     pub oauth2: bool,
     pub selected_folder: Option<String>,
@@ -159,6 +160,7 @@ impl Imap {
     /// `addr` is used to renew token if OAuth2 authentication is used.
     pub async fn new(
         lp: &ServerLoginParam,
+        socks5_config: &DeltaSocks5Config,
         addr: &str,
         oauth2: bool,
         provider_strict_tls: bool,
@@ -177,6 +179,7 @@ impl Imap {
         let config = ImapConfig {
             addr: addr.to_string(),
             lp: lp.clone(),
+            socks5_config: socks5_config.clone(),
             strict_tls,
             oauth2,
             selected_folder: None,
@@ -210,10 +213,12 @@ impl Imap {
         }
 
         let param = LoginParam::from_database(context, "configured_").await?;
+        
         // the trailing underscore is correct
 
         let imap = Self::new(
             &param.imap,
+            &param.socks5_config,
             &param.addr,
             param.server_flags & DC_LP_AUTH_OAUTH2 != 0,
             param.provider.map_or(false, |provider| provider.strict_tls),
@@ -254,7 +259,13 @@ impl Imap {
             let imap_server: &str = config.lp.server.as_ref();
             let imap_port = config.lp.port;
 
-            match Client::connect_insecure((imap_server, imap_port)).await {
+            let connection = if config.socks5_config.enabled == true {
+                Client::connect_insecure_socks5((imap_server.to_string(), imap_port), config.socks5_config.clone()).await
+            } else {
+                Client::connect_insecure((imap_server, imap_port)).await
+            };
+
+            match connection {
                 Ok(client) => {
                     if config.lp.security == Socket::Starttls {
                         client.secure(imap_server, config.strict_tls).await
@@ -269,7 +280,11 @@ impl Imap {
             let imap_server: &str = config.lp.server.as_ref();
             let imap_port = config.lp.port;
 
-            Client::connect_secure((imap_server, imap_port), imap_server, config.strict_tls).await
+            if config.socks5_config.enabled == true {
+                Client::connect_secure_socks5((imap_server.to_string(), imap_port), config.strict_tls, config.socks5_config.clone()).await
+            } else {
+                Client::connect_secure((imap_server, imap_port), imap_server, config.strict_tls).await
+            }
         };
 
         let login_res = match connection_res {
