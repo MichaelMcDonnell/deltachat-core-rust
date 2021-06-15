@@ -256,10 +256,12 @@ async fn configure(ctx: &Context, param: &mut LoginParam) -> Result<()> {
                     param_autoconfig = None;
                 }
             }
-        } else {
+        } else if (0 == 1) {
             info!(ctx, "no offline autoconfig found");
             param_autoconfig =
                 get_autoconfig(ctx, param, &param_domain, &param_addr_urlencoded).await;
+        } else {
+            param_autoconfig = None;
         }
     } else {
         param_autoconfig = None;
@@ -442,8 +444,6 @@ async fn get_autoconfig(
     param_domain: &str,
     param_addr_urlencoded: &str,
 ) -> Option<Vec<ServerParams>> {
-    return None;
-    
     if let Ok(res) = moz_autoconfigure(
         ctx,
         &format!(

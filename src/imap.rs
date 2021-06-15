@@ -166,6 +166,7 @@ impl Imap {
         provider_strict_tls: bool,
         idle_interrupt: Receiver<InterruptInfo>,
     ) -> Result<Self> {
+        println!("socks5_config: {}", socks5_config);
         if lp.server.is_empty() || lp.user.is_empty() || lp.password.is_empty() {
             bail!("Incomplete IMAP connection parameters");
         }
@@ -239,6 +240,7 @@ impl Imap {
     /// instead if you are going to actually use connection rather than trying connection
     /// parameters.
     pub async fn connect(&mut self, context: &Context) -> Result<()> {
+        
         if self.config.lp.server.is_empty() {
             bail!("IMAP operation attempted while it is torn down");
         }
@@ -397,8 +399,9 @@ impl Imap {
     /// to avoid showing failed attempt errors to the user.
     pub async fn prepare(&mut self, context: &Context) -> Result<()> {
         let res = self.connect(context).await;
-        if let Err(ref err) = res {
-            emit_event!(context, EventType::ErrorNetwork(err.to_string()));
+        if let Err(err) = res {
+            error_network!(context, "IMAP prepare error: {}", err);
+            return Err(err);
         }
 
         self.ensure_configured_folders(context, true).await?;

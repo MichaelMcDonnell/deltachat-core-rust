@@ -114,7 +114,8 @@ impl fmt::Display for DeltaSocks5Config {
 
         write!(
             f,
-            "host:{},port:{},user:{},pass:***",
+            "enabled={}.host:{},port:{},user:{},pass:***",
+            self.enabled,
             self.host,
             self.port,
             self.user
@@ -315,23 +316,21 @@ impl LoginParam {
             sql.set_raw_config(key, Some(provider.id)).await?;
         }
 
-        if self.socks5_config.host != "" {
-            let key = format!("{}socks5_host", prefix);
-            sql.set_raw_config(key, Some(&self.socks5_config.host)).await?;
+        let key = format!("{}socks5_enabled", prefix);
+        sql.set_raw_config_bool(key, self.socks5_config.enabled).await?;
 
-            let key = format!("{}socks5_port", prefix);
-            sql.set_raw_config(key, Some(&format!("{}", &self.socks5_config.port))).await?;
-            
+        let key = format!("{}socks5_host", prefix);
+        sql.set_raw_config(key, Some(&self.socks5_config.host)).await?;
 
-            if self.socks5_config.user != "" {
-                let key = format!("{}socks5_user", prefix);
-                sql.set_raw_config(key, Some(&self.socks5_config.user)).await?;
+        let key = format!("{}socks5_port", prefix);
+        sql.set_raw_config(key, Some(&format!("{}", &self.socks5_config.port))).await?;
+        
+        let key = format!("{}socks5_user", prefix);
+        sql.set_raw_config(key, Some(&self.socks5_config.user)).await?;
 
-                let key = format!("{}socks5_password", prefix);
-                sql.set_raw_config(key, Some(&self.socks5_config.password)).await?;
-            }
-        }
-
+        let key = format!("{}socks5_password", prefix);
+        sql.set_raw_config(key, Some(&self.socks5_config.password)).await?;
+        
         Ok(())
     }
 }
