@@ -910,8 +910,8 @@ impl Chat {
         !self.id.is_special()
             && !self.is_device_talk()
             && !self.is_mailing_list()
-            && (is_contact_in_chat(context, self.id, DC_CONTACT_ID_SELF).await
-                || self.typ == Chattype::Single)
+            && (self.typ == Chattype::Single
+                || is_contact_in_chat(context, self.id, DC_CONTACT_ID_SELF).await)
     }
 
     pub async fn update_param(&mut self, context: &Context) -> Result<()> {
