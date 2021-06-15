@@ -378,6 +378,8 @@ async fn configure(ctx: &Context, param: &mut LoginParam) -> Result<()> {
             600 + (800 - 600) * (1 + imap_server_index) / imap_servers_count
         );
     }
+
+    println!("Halllooooo?");
     let mut imap = match imap {
         Some(imap) => imap,
         None => bail!(nicer_configuration_error(ctx, errors).await),

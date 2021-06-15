@@ -13,7 +13,7 @@ use async_std::{future, net::{self, TcpStream}};
 use fast_socks5::client::{Config, Socks5Stream};
 
 use super::session::Session;
-use crate::login_param::{DeltaSocks5Config, dc_build_tls};
+use crate::login_param::{DeltaSocks5Config, DeltaSocksError, dc_build_tls};
 
 use super::session::SessionStream;
 
@@ -140,9 +140,15 @@ impl Client {
     }
 
     pub async fn connect_insecure_socks5(target_addr: (String, u16), socks5_config: DeltaSocks5Config) -> ImapResult<Self> {
-        let socks5_stream: Box<dyn SessionStream> = Box::new(match socks5_config.connect(&ServerAddress::new(target_addr.0.clone(), target_addr.1), Duration::from_millis(500)).await {
+        println!("xxxx?");
+        let socks5_stream: Box<dyn SessionStream> = Box::new(match socks5_config.connect(&ServerAddress::new(target_addr.0.clone(), target_addr.1), Duration::from_millis(5000)).await {
             Ok(s) => s,
-            Err(e) => { return Err(ImapError::ConnectionLost); }
+            Err(e) => {
+                return match e {
+                    DeltaSocksError::SocksError(e) => Err(ImapError::Socks5Error(e)),
+                    DeltaSocksError::TimeoutError(e) => Err(ImapError::Timeout(e))
+                };
+            }
         });
 
 
