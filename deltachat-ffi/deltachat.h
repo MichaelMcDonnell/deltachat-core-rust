@@ -1183,6 +1183,12 @@ void            dc_delete_chat               (dc_context_t* context, uint32_t ch
 /**
  * Block a chat.
  *
+ * Blocking 1:1 chats blocks the corresponding contact. Blocking
+ * mailing lists creates a pseudo-contact in the list of blocked
+ * contacts, so blocked mailing lists can be discovered and unblocked
+ * the same way as the contacts.  Blocking group chats deletes the
+ * chat without blocking any contacts, so it may pop up again later.
+ *
  * @memberof dc_context_t
  * @param context The context object as returned from dc_context_new().
  * @param chat_id The ID of the chat to block.
