@@ -913,6 +913,7 @@ class TestOnlineAccount:
         chat2 = msg_in.chat
         assert msg_in in chat2.get_messages()
         assert not msg_in.is_forwarded()
+        assert chat2.is_contact_request()
 
         lp.sec("ac2: create new chat and forward message to it")
         chat3 = ac2.create_group_chat("newgroup")
@@ -1851,6 +1852,7 @@ class TestOnlineAccount:
 
         lp.sec("ac2: wait for receiving message and avatar from ac1")
         msg2 = ac2._evtracker.wait_next_messages_changed()
+        assert msg2.chat.is_contact_request()
         received_path = msg2.get_sender_contact().get_profile_image()
         assert open(received_path, "rb").read() == open(p, "rb").read()
 
