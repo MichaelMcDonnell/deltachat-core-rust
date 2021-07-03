@@ -1126,8 +1126,7 @@ pub unsafe extern "C" fn dc_delete_chat(context: *mut dc_context_t, chat_id: u32
         ChatId::new(chat_id)
             .delete(&ctx)
             .await
-            .log_err(ctx, "Failed chat delete")
-            .ok();
+            .ok_or_log_msg(ctx, "Failed chat delete");
     })
 }
 
@@ -1143,8 +1142,7 @@ pub unsafe extern "C" fn dc_block_chat(context: *mut dc_context_t, chat_id: u32)
         ChatId::new(chat_id)
             .block(&ctx)
             .await
-            .log_err(ctx, "Failed chat block")
-            .ok();
+            .ok_or_log_msg(ctx, "Failed chat block");
     })
 }
 
@@ -1160,8 +1158,7 @@ pub unsafe extern "C" fn dc_accept_chat(context: *mut dc_context_t, chat_id: u32
         ChatId::new(chat_id)
             .accept(&ctx)
             .await
-            .log_err(ctx, "Failed chat accept")
-            .ok();
+            .ok_or_log_msg(ctx, "Failed chat accept");
     })
 }
 
